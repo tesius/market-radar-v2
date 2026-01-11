@@ -2,15 +2,15 @@ import React from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
-const MetricCard = ({ name, ticker, value, change, change_percent, history }) => {
+const MetricCard = ({ title, name, ticker, value, change, changePercent, change_percent, displayChange, history }) => {
     // 1. 데이터 안전장치 & 포맷팅
     // 이름이 없으면 티커라도 보여주고, 그것도 없으면 Loading
-    const displayName = name || ticker || "Loading...";
+    const displayName = title || name || ticker || "Loading...";
 
     // 값이 없을 경우를 대비한 방어 로직
     const safeValue = typeof value === 'number' ? value : 0;
     const safeChange = typeof change === 'number' ? change : 0;
-    const safePercent = typeof change_percent === 'number' ? change_percent : 0;
+    const safePercent = typeof changePercent === 'number' ? changePercent : (typeof change_percent === 'number' ? change_percent : 0);
     const safeHistory = history || [];
 
     // 2. 숫자 예쁘게 다듬기 (소수점 2자리, 콤마 찍기)

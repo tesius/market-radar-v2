@@ -92,6 +92,7 @@ function App() {
               : pulseData.map((item) => (
                 <MetricCard
                   key={item.ticker}
+                  ticker={item.ticker}
                   title={item.name}
                   value={item.display_value || item.price}
                   change={item.change}
