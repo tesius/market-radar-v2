@@ -4,13 +4,13 @@ import {
     ResponsiveContainer, ReferenceLine, Legend
 } from 'recharts';
 
-// 🎨 커스텀 툴팁 (기존 디자인 유지)
+// 🎨 커스텀 툴팁 (기존 디자인 유지 + 라이트모드 대응)
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         const data = payload[0];
         return (
-            <div className="bg-gray-900/90 border border-gray-700 p-3 rounded-lg shadow-xl backdrop-blur-sm">
-                <p className="text-gray-400 text-xs mb-1">{label}</p>
+            <div className="bg-white/90 dark:bg-gray-900/90 border border-gray-200 dark:border-gray-700 p-3 rounded-lg shadow-xl backdrop-blur-sm transition-colors duration-300">
+                <p className="text-gray-500 dark:text-gray-400 text-xs mb-1">{label}</p>
                 <p className="text-lg font-bold" style={{ color: data.color }}>
                     {data.name}: {data.value}%
                 </p>
@@ -20,7 +20,7 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-const MacroChart = ({ title, data, color, showTarget = false }) => {
+const MacroChart = ({ title, data, color, showTarget = false, isDarkMode = true }) => {
     // 1. 기간 선택 상태 (기본값: 5년)
     const [timeRange, setTimeRange] = useState('5Y');
 
@@ -41,30 +41,33 @@ const MacroChart = ({ title, data, color, showTarget = false }) => {
     }, [data, timeRange]);
 
     if (!data || data.length === 0) {
-        return <div className="h-[350px] bg-gray-800 rounded-xl animate-pulse border border-gray-700"></div>;
+        return <div className="h-[350px] bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse border border-gray-200 dark:border-gray-700"></div>;
     }
 
     const gradientId = `colorGradient-${color.replace('#', '')}`;
     const ranges = ['1Y', '5Y', '10Y', 'MAX'];
 
+    // Grid Color Logic
+    const gridColor = isDarkMode ? "#374151" : "#e5e7eb";
+
     return (
-        <div className="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg transition-all duration-300">
 
             {/* 🟢 헤더 영역: 제목(좌측) + 기간 버튼(우측) */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2 transition-colors duration-300">
                     {title}
                 </h3>
 
                 {/* 기간 선택 버튼 그룹 */}
-                <div className="flex bg-gray-900 rounded-lg p-1 border border-gray-700">
+                <div className="flex bg-gray-100 dark:bg-gray-900 rounded-lg p-1 border border-gray-200 dark:border-gray-700 transition-colors duration-300">
                     {ranges.map((range) => (
                         <button
                             key={range}
                             onClick={() => setTimeRange(range)}
                             className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${timeRange === range
-                                ? 'bg-gray-700 text-white shadow'
-                                : 'text-gray-500 hover:text-gray-300'
+                                ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow'
+                                : 'text-gray-500 hover:text-gray-900 dark:hover:text-gray-300'
                                 }`}
                         >
                             {range}
@@ -84,7 +87,7 @@ const MacroChart = ({ title, data, color, showTarget = false }) => {
                             </linearGradient>
                         </defs>
 
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
 
                         <XAxis
                             dataKey="date"
@@ -122,9 +125,9 @@ const MacroChart = ({ title, data, color, showTarget = false }) => {
                         {showTarget && (
                             <ReferenceLine
                                 y={2.0}
-                                stroke="#10b981"
+                                stroke="#3B82F6"
                                 strokeDasharray="3 3"
-                                label={{ position: 'insideTopRight', value: 'Target 2%', fill: '#10b981', fontSize: 12 }}
+                                label={{ position: 'insideTopRight', value: '목표치 2%', fill: '#3B82F6', fontSize: 12 }}
                             />
                         )}
 

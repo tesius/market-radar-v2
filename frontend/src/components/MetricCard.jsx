@@ -5,7 +5,7 @@ import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 const MetricCard = ({ title, name, ticker, value, change, changePercent, change_percent, displayChange, history }) => {
     // 1. 데이터 안전장치 & 포맷팅
     // 이름이 없으면 티커라도 보여주고, 그것도 없으면 Loading
-    const displayName = title || name || ticker || "Loading...";
+    const displayName = title || name || ticker || "로딩 중...";
 
     // 값이 없을 경우를 대비한 방어 로직
     const safeValue = typeof value === 'number' ? value : 0;
@@ -23,28 +23,28 @@ const MetricCard = ({ title, name, ticker, value, change, changePercent, change_
     const isNegative = safeChange < 0;
     const isNeutral = safeChange === 0;
 
-    // 4. 색상 설정
+    // 4. 색상 설정 (한국 시장 기준: 상승-빨강, 하락-파랑)
     let color = '#9CA3AF'; // 기본 회색 (Neutral)
-    if (isPositive) color = '#10B981'; // Emerald (상승)
-    if (isNegative) color = '#EF4444'; // Red (하락)
+    if (isPositive) color = '#EF4444'; // Red (상승)
+    if (isNegative) color = '#3B82F6'; // Blue (하락)
 
     // 그라데이션 ID (고유값 보장)
     const gradientId = `gradient-${(ticker || 'unknown').replace(/\W/g, '')}-${Math.random()}`;
 
     return (
-        <div className="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg flex flex-col justify-between h-[180px] relative overflow-hidden group hover:border-gray-600 transition-all">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg flex flex-col justify-between h-[180px] relative overflow-hidden group hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300">
 
             {/* 텍스트 정보 영역 */}
             <div className="z-10 pointer-events-none">
-                <h3 className="text-gray-400 text-sm font-medium mb-1 truncate">{displayName}</h3>
+                <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-1 truncate">{displayName}</h3>
 
                 {/* 메인 가격 */}
-                <div className="text-2xl font-bold text-white mb-2 tracking-tight">
+                <div className="text-2xl font-bold text-gray-900 dark:text-white mb-2 tracking-tight transition-colors duration-300">
                     {formattedValue}
                 </div>
 
                 {/* 등락률 표시 (아이콘 + 숫자) */}
-                <div className="flex items-center text-sm font-bold" style={{ color: color }}>
+                <div className="flex items-center text-sm font-bold transition-colors duration-300" style={{ color: color }}>
                     {isPositive && <ArrowUpRight size={16} className="mr-1" />}
                     {isNegative && <ArrowDownRight size={16} className="mr-1" />}
                     {isNeutral && <Minus size={16} className="mr-1" />}
@@ -56,7 +56,7 @@ const MetricCard = ({ title, name, ticker, value, change, changePercent, change_
             </div>
 
             {/* 배경 미니 차트 */}
-            <div className="absolute bottom-0 left-0 right-0 w-full opacity-40 group-hover:opacity-70 transition-opacity" style={{ height: '100px' }}>
+            <div className="absolute bottom-0 left-0 right-0 w-full opacity-30 dark:opacity-40 group-hover:opacity-60 dark:group-hover:opacity-70 transition-opacity" style={{ height: '100px' }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={safeHistory}>
                         <defs>
@@ -80,5 +80,4 @@ const MetricCard = ({ title, name, ticker, value, change, changePercent, change_
         </div>
     );
 };
-
 export default MetricCard;
