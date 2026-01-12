@@ -127,9 +127,9 @@ def get_risk_ratio():
     try:
         # 1. 각각 다운로드 (안전하게 따로 받기)
         # auto_adjust=True로 수정주가(Adj Close) 자동 반영
-        gold = yf.download("GC=F", period="1y", interval="1d", progress=False, auto_adjust=True)
-        silver = yf.download("SI=F", period="1y", interval="1d", progress=False, auto_adjust=True)
-        sp500 = yf.download("^GSPC", period="1y", interval="1d", progress=False, auto_adjust=True)
+        gold = yf.download("GC=F", period="max", interval="1d", progress=False, auto_adjust=True)
+        silver = yf.download("SI=F", period="max", interval="1d", progress=False, auto_adjust=True)
+        sp500 = yf.download("^GSPC", period="max", interval="1d", progress=False, auto_adjust=True)
 
         # 2. 종가(Close)만 안전하게 추출하는 헬퍼 함수
         def extract_close(df):

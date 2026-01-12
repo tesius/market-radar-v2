@@ -122,7 +122,7 @@ function App() {
         <section>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
-            시장 현황 (Market Pulse)
+            실시간 시장 현황
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
             {loading && pulseData.length === 0
@@ -148,20 +148,20 @@ function App() {
         <section>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <span className="w-1 h-6 bg-green-500 rounded-full"></span>
-            거시 경제 지표 (Macro Health)
+            거시 경제 지표
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <MacroChart
               title="🇺🇸 미국 소비자물가지수 (CPI)"
               data={cpiData?.data}
-              color="#EF4444"
+              color="#F59E0B"
               showTarget={true} // 2% 타겟 라인 표시
               isDarkMode={isDarkMode}
             />
             <MacroChart
-              title="🇺🇸 실업률 (%)"
+              title="🇺🇸 고용지표 (실업률)"
               data={unrateData?.data}
-              color="#3B82F6"
+              color="#6366F1"
               isDarkMode={isDarkMode}
             />
           </div>
@@ -171,7 +171,7 @@ function App() {
         <section>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <span className="w-1 h-6 bg-yellow-500 rounded-full"></span>
-            위험 신호 탐지 (Risk Radar)
+            위험 신호 탐지
           </h2>
           <RiskChart data={riskData} isDarkMode={isDarkMode} />
         </section>

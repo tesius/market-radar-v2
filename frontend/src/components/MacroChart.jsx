@@ -125,9 +125,9 @@ const MacroChart = ({ title, data, color, showTarget = false, isDarkMode = true 
                         {showTarget && (
                             <ReferenceLine
                                 y={2.0}
-                                stroke="#3B82F6"
+                                stroke="#D97706"
                                 strokeDasharray="3 3"
-                                label={{ position: 'insideTopRight', value: '목표치 2%', fill: '#3B82F6', fontSize: 12 }}
+                                label={{ position: 'insideTopRight', value: '목표치 2%', fill: '#D97706', fontSize: 12 }}
                             />
                         )}
 
