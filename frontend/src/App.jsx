@@ -6,6 +6,7 @@ import MetricCard from './components/MetricCard';
 import MacroChart from './components/MacroChart'; // 추가
 import RiskChart from './components/RiskChart';   // 추가
 import { Activity, RefreshCw } from 'lucide-react';
+import PromptGenerator from './components/PromptGenerator';
 
 function App() {
   const [pulseData, setPulseData] = useState([]);
@@ -106,6 +107,14 @@ function App() {
             >
               {isDarkMode ? '🌞' : '🌙'}
             </button>
+
+            {/* AI Prompt Copy Button */}
+            <PromptGenerator
+              pulseData={pulseData}
+              cpiData={cpiData}
+              unrateData={unrateData}
+              riskData={riskData}
+            />
 
             <button
               onClick={fetchAllData}
