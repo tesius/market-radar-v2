@@ -4,6 +4,12 @@ from services import market_data # 방금 만든 모듈 import
 
 app = FastAPI()
 
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://tesius.github.io", 
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
