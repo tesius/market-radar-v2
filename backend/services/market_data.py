@@ -158,72 +158,95 @@ def get_macro_data(series_id, label):
 
 
 # 3. Risk Radar (수정: 데이터 병합 로직 개선)
-@cached(cache=risk_cache)
+@# @cached(cache=risk_cache) 
 def get_risk_ratio():
     try:
-        # 1. 각각 다운로드 (안전하게 따로 받기)
-        # auto_adjust=True로 수정주가(Adj Close) 자동 반영
+        # 1. 데이터 다운로드
+        # auto_adjust=True: 수정 주가 반영 (주식 분할 등 고려)
         gold = yf.download("GC=F", period="max", interval="1d", progress=False, auto_adjust=True)
         silver = yf.download("SI=F", period="max", interval="1d", progress=False, auto_adjust=True)
         sp500 = yf.download("^GSPC", period="max", interval="1d", progress=False, auto_adjust=True)
 
-        # 2. 종가(Close)만 안전하게 추출하는 헬퍼 함수
-        def extract_close(df):
-            if df.empty: return pd.Series(dtype=float)
-            # MultiIndex 처리 ('Close', 'GC=F')
+        # 2. 안전한 종가 추출 헬퍼 (yfinance 버전 호환성 확보)
+        def get_safe_close(df):
+            if df.empty: return None
+            
+            # 최신 yfinance는 MultiIndex로 오는 경우가 많음 ('Price', 'Ticker')
             if isinstance(df.columns, pd.MultiIndex):
-                try: return df['Close'].iloc[:, 0] # 첫 번째 종가 컬럼
-                except: return df.iloc[:, 0]       # 안되면 그냥 첫 번째 데이터
-            # 일반 컬럼 처리
-            if 'Close' in df.columns: return df['Close']
+                # 'Close' 레벨이 있는지 확인
+                if 'Close' in df.columns.get_level_values(0):
+                    return df.xs('Close', axis=1, level=0).iloc[:, 0]
+            
+            # 구버전 또는 단일 인덱스
+            if 'Close' in df.columns:
+                return df['Close']
+                
+            # 정 안되면 첫 번째 컬럼 (최후의 수단)
             return df.iloc[:, 0]
 
-        g_series = extract_close(gold)
-        s_series = extract_close(silver)
-        sp_series = extract_close(sp500)
+        g_series = get_safe_close(gold)
+        s_series = get_safe_close(silver)
+        sp_series = get_safe_close(sp500)
 
-        # 3. 데이터프레임 병합 (Outer Join)
-        df = pd.DataFrame({'gold': g_series, 'silver': s_series, 'sp500': sp_series})
-        
-        # 4. 결측치 채우기 (가장 중요!)
-        # ffill: 어제 데이터로 오늘을 채움 (주말/휴일 방어)
+        # 하나라도 비어있으면 에러 처리
+        if g_series is None or s_series is None or sp_series is None:
+            raise ValueError("데이터 다운로드 실패 (Empty Data)")
+
+        # 3. 데이터 병합 (Concat 사용이 더 빠르고 안전)
+        # axis=1로 합치면 날짜(Index) 기준으로 자동 정렬됩니다.
+        df = pd.concat([g_series, s_series, sp_series], axis=1)
+        df.columns = ['gold', 'silver', 'sp500']
+
+        # 4. 전처리 (벡터 연산)
+        # 결측치 채우기 및 제거
         df = df.ffill().dropna()
 
-        result = []
-        for date, row in df.iterrows():
-            g_val = float(row['gold'])
-            s_val = float(row['silver'])
-            sp_val = float(row['sp500'])
+        # [중요] 타임존 정보 제거 (서버/로컬 불일치 방지)
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
 
-            # 5. [핵심] 나눗셈 안전장치
-            if s_val == 0 or pd.isna(s_val) or pd.isna(g_val):
-                continue # 분모가 0이거나 데이터 없으면 패스
+        # 5. 비율 계산 (for 문 제거 -> 속도 향상)
+        # 은 가격이 0인 경우를 대비해 numpy로 안전하게 나눗셈 처리
+        # inf(무한대)가 생기면 NaN으로 바꿈
+        df['ratio'] = df['gold'] / df['silver']
+        df = df.replace([np.inf, -np.inf], np.nan).dropna()
+        
+        # 6. 결과 포맷팅 (to_dict 사용)
+        # 날짜를 인덱스에서 컬럼으로 뺌
+        df = df.reset_index()
+        df.rename(columns={'index': 'date', 'Date': 'date'}, inplace=True) # 인덱스 이름 대응
+        
+        # 문자열 날짜 변환
+        df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+        
+        # 소수점 정리
+        df['ratio'] = df['ratio'].round(2)
+        df['sp500'] = df['sp500'].round(2)
 
-            ratio = g_val / s_val
-            
-            result.append({
-                "date": date.strftime("%Y-%m-%d"),
-                "ratio": round(ratio, 2),
-                "sp500": round(sp_val, 2)
-            })
-            
-        # 데이터가 너무 없으면(API 실패 등) 가짜 데이터라도 반환 (화면 테스트용)
-        if len(result) < 10:
-            print("⚠️ Risk 데이터 부족으로 Mock Data 생성")
-            base_sp = 4500
-            base_ratio = 80
-            today = datetime.now()
-            result = []
-            for i in range(100):
-                d = today - timedelta(days=100-i)
-                result.append({
-                    "date": d.strftime("%Y-%m-%d"),
-                    "ratio": round(base_ratio + (i%10), 2),
-                    "sp500": round(base_sp + (i*10), 2)
-                })
+        # 필요한 컬럼만 뽑아서 딕셔너리 리스트로 변환
+        final_data = df[['date', 'ratio', 'sp500']].to_dict('records')
 
-        return result
+        # 데이터 검증
+        if len(final_data) < 10:
+            raise ValueError("유효한 데이터가 너무 적음")
+
+        return final_data
 
     except Exception as e:
         print(f"❌ [Risk Logic Error]: {e}")
-        return []
+        
+        # --- Mock Data 생성 로직 (비상용) ---
+        # 실제 배포 환경에서 API가 막혔을 때 화면이 깨지는 걸 방지
+        print("⚠️ Risk 데이터 부족으로 Mock Data 생성")
+        base_sp = 4500
+        base_ratio = 80
+        today = datetime.now()
+        mock_result = []
+        for i in range(200): # 데이터를 좀 더 넉넉하게 (200일)
+            d = today - timedelta(days=200-i)
+            mock_result.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "ratio": round(base_ratio + (i % 10) * 0.5, 2),
+                "sp500": round(base_sp + (i * 5), 2)
+            })
+        return mock_result
