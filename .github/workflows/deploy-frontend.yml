@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - "frontend/**" # 프론트엔드 폴더가 바뀔 때만 실행
+  workflow_dispatch:
 
 permissions:
   contents: read
