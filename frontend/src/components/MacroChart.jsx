@@ -27,7 +27,7 @@ const MacroChart = ({ title, data, color, showTarget = false, isDarkMode = true 
     // 2. 기간 필터링 로직 (데이터가 변경되거나 기간을 바꿀 때만 재계산)
     const filteredData = useMemo(() => {
         if (!data || data.length === 0) return [];
-        if (timeRange === 'MAX') return data;
+        if (timeRange === 'ALL') return data;
 
         const now = new Date();
         const cutoffDate = new Date();
@@ -45,7 +45,7 @@ const MacroChart = ({ title, data, color, showTarget = false, isDarkMode = true 
     }
 
     const gradientId = `colorGradient-${color.replace('#', '')}`;
-    const ranges = ['1Y', '5Y', '10Y', 'MAX'];
+    const ranges = ['1Y', '5Y', '10Y', 'ALL'];
 
     // Grid Color Logic
     const gridColor = isDarkMode ? "#374151" : "#e5e7eb";

@@ -29,7 +29,7 @@ const RiskChart = ({ data, isDarkMode = true }) => {
     // 2. 기간 필터링 로직
     const filteredData = useMemo(() => {
         if (!data || data.length === 0) return [];
-        if (timeRange === 'MAX') return data;
+        if (timeRange === 'ALL') return data;
 
         const now = new Date();
         const cutoffDate = new Date();
@@ -51,7 +51,7 @@ const RiskChart = ({ data, isDarkMode = true }) => {
     }
 
     const gridColor = isDarkMode ? "#374151" : "#e5e7eb";
-    const ranges = ['1Y', '5Y', '10Y', 'MAX'];
+    const ranges = ['1Y', '5Y', '10Y', 'ALL'];
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl col-span-1 md:col-span-2 transition-all duration-300">
