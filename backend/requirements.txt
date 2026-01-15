@@ -1,0 +1,9 @@
+cachetools==6.2.4
+fastapi==0.128.0
+numpy==2.4.1
+pandas==2.3.3
+pandas_datareader==0.10.0
+yfinance==1.0
+uvicorn==0.40.0
+fredapi==0.5.2
+python-dotenv==1.2.1

@@ -1,11 +1,13 @@
 # backend/services/market_data.py (수정 버전)
 
 import yfinance as yf
-import pandas_datareader.data as web
 from datetime import datetime, timedelta
 from cachetools import TTLCache, cached
 import pandas as pd
 import numpy as np # 데이터 처리를 위해 필요
+from dotenv import load_dotenv
+import os
+from fredapi import Fred    
 
 # 캐시 설정
 stock_cache = TTLCache(maxsize=100, ttl=600)
@@ -22,6 +24,40 @@ TICKERS = {
     "EEM": "신흥국 ETF (EEM)",     # 7. Emerging Markets
     "^KS11": "코스피 지수"         # 8. KOSPI (한국)
 }
+
+# 1. 환경 변수 로딩 (.env 파일 읽기)
+load_dotenv()
+
+# 2. FRED API 키 설정 및 안전장치
+fred_key = os.getenv("FRED_API_KEY")
+if fred_key:
+    fred = Fred(api_key=fred_key)
+else:
+    print("⚠️ 경고: FRED API 키가 없습니다. 거시경제 데이터 기능이 제한됩니다.")
+    fred = None
+
+def get_fred_data(series_id, start, end):
+    """
+    FRED 데이터 가져오기 (fredapi 사용)
+    """
+    if fred is None:
+        return pd.DataFrame()
+
+    try:
+        # 관측 시작일(observation_start) 지정으로 데이터량 조절
+        series = fred.get_series(series_id, observation_start=start, end=end)
+        
+        # Series를 DataFrame으로 변환 및 정제
+        df = pd.DataFrame(series, columns=[series_id])
+        df.index.name = 'DATE'
+        
+        # 결측치 제거 (그래프 끊김 방지)
+        return df.dropna()
+        
+    except Exception as e:
+        print(f"FRED Error ({series_id}): {e}")
+        return pd.DataFrame()
+
 
 # 1. Market Pulse (기존과 동일 - 잘 됨)
 @cached(cache=stock_cache)
@@ -89,7 +125,7 @@ def get_macro_data(series_id, label):
         # 데이터 넉넉하게 가져오기 (변동률 계산 위해 1년 더 필요)
         start = datetime(2014, 1, 1) 
         end = datetime.now()
-        df = web.DataReader(series_id, "fred", start, end)
+        df = get_fred_data(series_id, start, end)
         
         if df.empty: raise ValueError("Empty Data")
 
