@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 1. Axios 인스턴스 생성 (공통 설정)
 const api = axios.create({
-    baseURL: 'http://127.0.0.1:8080', // 백엔드 주소 (Uvicorn)
+    baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080', // 백엔드 주소 (Uvicorn)
     timeout: 5000, // 5초 안에 응답 없으면 에러 처리
     headers: {
         'Content-Type': 'application/json',
