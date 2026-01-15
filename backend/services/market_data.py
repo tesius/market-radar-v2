@@ -158,7 +158,7 @@ def get_macro_data(series_id, label):
 
 
 # 3. Risk Radar (수정: 데이터 병합 로직 개선)
-@# @cached(cache=risk_cache) 
+# @cached(cache=risk_cache) 
 def get_risk_ratio():
     try:
         # 1. 데이터 다운로드
