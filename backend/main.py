@@ -41,3 +41,8 @@ def get_unrate():
 @app.get("/api/macro/risk-ratio")
 def get_risk_radar():
     return market_data.get_risk_ratio()
+
+# 5. 크레딧 스프레드 (Credit Spread)
+@app.get("/api/market/credit-spread")
+def get_credit_spread():
+    return market_data.get_credit_spread_data()

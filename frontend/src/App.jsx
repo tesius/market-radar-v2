@@ -5,6 +5,7 @@ import api from './api';
 import MetricCard from './components/MetricCard';
 import MacroChart from './components/MacroChart'; // 추가
 import RiskChart from './components/RiskChart';   // 추가
+import CreditSpreadChart from './components/CreditSpreadChart'; // 추가
 import { Activity, RefreshCw } from 'lucide-react';
 import PromptGenerator from './components/PromptGenerator';
 
@@ -13,6 +14,7 @@ function App() {
   const [cpiData, setCpiData] = useState(null);
   const [unrateData, setUnrateData] = useState(null);
   const [riskData, setRiskData] = useState([]);
+  const [creditSpreadData, setCreditSpreadData] = useState([]);
 
   // Theme Management (Default: Dark)
   const [theme, setTheme] = useState(() => {
@@ -66,15 +68,17 @@ function App() {
     const results = await Promise.allSettled([
       api.get('/api/macro/cpi'),
       api.get('/api/macro/unrate'),
-      api.get('/api/macro/risk-ratio')
+      api.get('/api/macro/risk-ratio'),
+      api.get('/api/market/credit-spread')
     ]);
 
     // 결과 처리 (성공한 것만 상태에 넣기)
-    const [cpiResult, unrateResult, riskResult] = results;
+    const [cpiResult, unrateResult, riskResult, creditResult] = results;
 
     if (cpiResult.status === 'fulfilled') setCpiData(cpiResult.value.data);
     if (unrateResult.status === 'fulfilled') setUnrateData(unrateResult.value.data);
     if (riskResult.status === 'fulfilled') setRiskData(riskResult.value.data);
+    if (creditResult.status === 'fulfilled') setCreditSpreadData(creditResult.value.data);
 
     setLastUpdated(new Date().toLocaleTimeString());
     setLoading(false);
@@ -183,6 +187,11 @@ function App() {
             위험 신호 탐지
           </h2>
           <RiskChart data={riskData} isDarkMode={isDarkMode} />
+        </section>
+
+        {/* 4. Credit Market (크레딧 스프레드) */}
+        <section>
+          <CreditSpreadChart data={creditSpreadData} loading={loading} />
         </section>
 
         <footer className="text-center text-gray-500 dark:text-gray-600 text-sm py-8 transition-colors duration-300">

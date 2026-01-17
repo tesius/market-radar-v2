@@ -58,7 +58,7 @@ const RiskChart = ({ data, isDarkMode = true }) => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2 transition-colors duration-300">
-                        ⚠️ 위험 신호 탐지
+                        Gold / Silver Ratio
                     </h3>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">S&P 500 지수 vs 금/은 비율 다이버전스</p>
                 </div>
