@@ -9,12 +9,14 @@ from dotenv import load_dotenv
 import os
 from fredapi import Fred
 import requests    
+from pykrx import stock
 
 # 캐시 설정
 stock_cache = TTLCache(maxsize=100, ttl=600)
 macro_cache = TTLCache(maxsize=100, ttl=86400)
 risk_cache = TTLCache(maxsize=100, ttl=600)
 credit_cache = TTLCache(maxsize=100, ttl=86400) # 24시간 캐시 (장기 데이터)
+yield_gap_cache = TTLCache(maxsize=100, ttl=3600) # 1시간 캐시
 
 TICKERS = {
     "^TNX": "미국 10년물 금리",    # 1. US 10Y Treasury
@@ -358,3 +360,156 @@ def get_credit_spread_data():
     except Exception as e:
         print(f"❌ [ECOS Error]: {e}")
         return generate_mock_spread()
+# 5. Yield Gap (Market Gauge)
+@cached(cache=yield_gap_cache)
+def get_yield_gap_data():
+    """
+    미국 및 한국 시장의 일드갭(Yield Gap) 정보를 가져옴
+    미국: S&P 500 PER 역수 - US 10Y Yield
+    한국: KOSPI PER 역수 - KR 10Y Yield
+    """
+    
+    def calculate_judgment(current, avg, market_type="US"):
+        diff = current - avg
+        if market_type == "US":
+            # US Judgment: "저평가" / "적정" / "고평가(과열)"
+            if diff > 0.5: return "저평가"
+            if diff < -0.5: return "고평가(과열)"
+            return "적정"
+        else:
+            # KR Judgment: "적극 매수" / "관망" / "매도"
+            if diff > 1.0: return "적극 매수"
+            if diff < -0.5: return "매도"
+            return "관망"
+
+    # --- 1. US Market (S&P 500) ---
+    us_data = {"current": 0, "avg": 0, "status": "데이터 없음", "pe": 0, "yield": 0}
+    try:
+        # yfinance로 SPY(S&P 500 Proxy) 정보 가져오기
+        spy = yf.Ticker("SPY")
+        
+        # PER 구하기 (trailingPE 우선, 없으면 forwardPE)
+        try:
+            current_pe = spy.info.get('trailingPE')
+            if not current_pe:
+                current_pe = spy.info.get('forwardPE')
+        except:
+            current_pe = 25.0 # Fallback
+            
+        if not current_pe: current_pe = 25.0
+        
+        # 10년물 국채 금리
+        current_yield_10y = 0
+        tnx = yf.download("^TNX", period="1d", progress=False)
+        if not tnx.empty:
+            if isinstance(tnx.columns, pd.MultiIndex):
+                try:
+                    current_yield_10y = tnx['Close']['^TNX'].iloc[-1]
+                except:
+                    current_yield_10y = tnx.iloc[-1, 0]
+            else:
+                current_yield_10y = tnx['Close'].iloc[-1]
+        
+        # 일드갭 계산
+        current_gap = (1 / current_pe) * 100 - current_yield_10y
+        
+        # 5년 평균 (FRED 데이터 활용)
+        start_5y = (datetime.now() - timedelta(days=1825)).strftime('%Y-%m-%d')
+        end_now = datetime.now().strftime('%Y-%m-%d')
+        
+        # 10년물 금리 히스토리
+        yield_10y_hist = get_fred_data("DGS10", start_5y, end_now)
+        avg_yield_5y = 0.0
+        if not yield_10y_hist.empty and "DGS10" in yield_10y_hist:
+             avg_yield_5y = yield_10y_hist["DGS10"].mean()
+        else:
+             avg_yield_5y = 3.0 # Fallback
+        
+        # S&P 500 5년 평균 PER (정확한 히스토리는 유료 데이터인 경우가 많아 상수 근사 또는 계산)
+        # S&P 500 평균 PER은 약 20~25 사이
+        avg_pe_5y = 22.0
+        avg_gap_5y = (1 / avg_pe_5y) * 100 - avg_yield_5y
+        
+        us_data = {
+            "current": round(current_gap, 2),
+            "avg": round(avg_gap_5y, 2),
+            "status": calculate_judgment(current_gap, avg_gap_5y, "US"),
+            "pe": round(current_pe, 1),
+            "yield": round(current_yield_10y, 2)
+        }
+    except Exception as e:
+        print(f"❌ [US Yield Gap Error]: {e}")
+
+    # --- 2. KR Market (KOSPI) ---
+    kr_data = {"current": 0, "avg": 0, "status": "데이터 없음", "pe": 0, "yield": 0}
+    try:
+        today_str = datetime.now().strftime("%Y%m%d")
+        
+        # 1) KOSPI PER (pykrx)
+        curr_pe_kr = 0
+        # 최근 5일 중 데이터 있는 날 찾기
+        for i in range(5):
+            target_date = (datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
+            try:
+                # 1001 = 코스피
+                df_fund = stock.get_index_fundamental(target_date, target_date, "1001")
+                if not df_fund.empty:
+                    # pykrx 버전에 따라 컬럼명이 다를 수 있음. 보통 'PER'
+                    if 'PER' in df_fund.columns:
+                        curr_pe_kr = df_fund['PER'].iloc[-1]
+                        break
+            except:
+                continue
+        
+        if curr_pe_kr == 0: curr_pe_kr = 12.0 # Fallback
+        
+        # 2) KR 10Y Yield (ECOS API)
+        kr_yield = 3.5 # Fallback
+        if ecos_key:
+            # 817Y002(시장금리 일별), 010210000(국고채 10년)
+            # 최근 데이터만 필요하므로 시작일을 7일 전으로 설정
+            start_recent = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
+            url = f"http://ecos.bok.or.kr/api/StatisticSearch/{ecos_key}/json/kr/1/10/817Y002/D/{start_recent}/{today_str}/010210000"
+            resp = requests.get(url).json()
+            if 'StatisticSearch' in resp:
+                kr_yield = float(resp['StatisticSearch']['row'][-1]['DATA_VALUE'])
+        
+        current_gap_kr = (1 / curr_pe_kr) * 100 - kr_yield
+        
+        # 3) 5년 평균
+        # KOSPI 5년 PER 평균
+        avg_pe_kr_5y = 11.0 # Fallback
+        start_5y_kr = (datetime.now() - timedelta(days=1825)).strftime('%Y%m%d')
+        try:
+             df_hist_pe = stock.get_index_fundamental(start_5y_kr, today_str, "1001")
+             if not df_hist_pe.empty and 'PER' in df_hist_pe.columns:
+                 avg_pe_kr_5y = df_hist_pe['PER'].replace(0, np.nan).dropna().mean()
+        except Exception as e:
+             print(f"PyKrx Hist Error: {e}")
+             
+        # KR 10Y 5년 금리 평균 (ECOS)
+        avg_yield_kr_5y = 2.5 # Fallback
+        if ecos_key:
+            url_avg = f"http://ecos.bok.or.kr/api/StatisticSearch/{ecos_key}/json/kr/1/2000/817Y002/D/{start_5y_kr}/{today_str}/010210000"
+            resp_avg = requests.get(url_avg).json()
+            if 'StatisticSearch' in resp_avg:
+                vals = [float(r['DATA_VALUE']) for r in resp_avg['StatisticSearch']['row']]
+                if vals:
+                    avg_yield_kr_5y = sum(vals) / len(vals)
+        
+        avg_gap_kr_5y = (1 / avg_pe_kr_5y) * 100 - avg_yield_kr_5y
+        
+        kr_data = {
+            "current": round(current_gap_kr, 2),
+            "avg": round(avg_gap_kr_5y, 2),
+            "status": calculate_judgment(current_gap_kr, avg_gap_kr_5y, "KR"),
+            "pe": round(curr_pe_kr, 1),
+            "yield": round(kr_yield, 2)
+        }
+    except Exception as e:
+        print(f"❌ [KR Yield Gap Error]: {e}")
+
+    return {
+        "us": us_data,
+        "kr": kr_data
+    }

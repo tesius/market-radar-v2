@@ -8,6 +8,7 @@ import RiskChart from './components/RiskChart';   // 추가
 import CreditSpreadChart from './components/CreditSpreadChart'; // 추가
 import { Activity, RefreshCw } from 'lucide-react';
 import PromptGenerator from './components/PromptGenerator';
+import MarketGauge from './components/MarketGauge';
 
 function App() {
   const [pulseData, setPulseData] = useState([]);
@@ -15,6 +16,7 @@ function App() {
   const [unrateData, setUnrateData] = useState(null);
   const [riskData, setRiskData] = useState([]);
   const [creditSpreadData, setCreditSpreadData] = useState([]);
+  const [yieldGapData, setYieldGapData] = useState(null);
 
   // Theme Management (Default: Dark)
   const [theme, setTheme] = useState(() => {
@@ -69,16 +71,18 @@ function App() {
       api.get('/api/macro/cpi'),
       api.get('/api/macro/unrate'),
       api.get('/api/macro/risk-ratio'),
-      api.get('/api/market/credit-spread')
+      api.get('/api/market/credit-spread'),
+      api.get('/api/market/yield-gap')
     ]);
 
     // 결과 처리 (성공한 것만 상태에 넣기)
-    const [cpiResult, unrateResult, riskResult, creditResult] = results;
+    const [cpiResult, unrateResult, riskResult, creditResult, yieldGapResult] = results;
 
     if (cpiResult.status === 'fulfilled') setCpiData(cpiResult.value.data);
     if (unrateResult.status === 'fulfilled') setUnrateData(unrateResult.value.data);
     if (riskResult.status === 'fulfilled') setRiskData(riskResult.value.data);
     if (creditResult.status === 'fulfilled') setCreditSpreadData(creditResult.value.data);
+    if (yieldGapResult.status === 'fulfilled') setYieldGapData(yieldGapResult.value.data);
 
     setLastUpdated(new Date().toLocaleTimeString());
     setLoading(false);
@@ -157,7 +161,16 @@ function App() {
           </div>
         </section>
 
-        {/* 2. Macro Health (거시경제) */}
+        {/* 2. Market Gauge (일드갭) */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+            시장 밸류에이션 (Yield Gap)
+          </h2>
+          <MarketGauge data={yieldGapData} loading={loading} />
+        </section>
+
+        {/* 3. Macro Health (거시경제) */}
         <section>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
             <span className="w-1 h-6 bg-green-500 rounded-full"></span>

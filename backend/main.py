@@ -46,3 +46,8 @@ def get_risk_radar():
 @app.get("/api/market/credit-spread")
 def get_credit_spread():
     return market_data.get_credit_spread_data()
+
+# 6. 일드갭 (Yield Gap)
+@app.get("/api/market/yield-gap")
+def get_yield_gap():
+    return market_data.get_yield_gap_data()
