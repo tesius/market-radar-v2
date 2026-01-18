@@ -122,6 +122,8 @@ function App() {
               cpiData={cpiData}
               unrateData={unrateData}
               riskData={riskData}
+              yieldGapData={yieldGapData}
+              creditSpreadData={creditSpreadData}
             />
 
             <button
@@ -204,7 +206,7 @@ function App() {
 
         {/* 4. Credit Market (크레딧 스프레드) */}
         <section>
-          <CreditSpreadChart data={creditSpreadData} loading={loading} />
+          <CreditSpreadChart data={creditSpreadData} loading={loading} isDarkMode={isDarkMode} />
         </section>
 
         <footer className="text-center text-gray-500 dark:text-gray-600 text-sm py-8 transition-colors duration-300">

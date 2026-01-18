@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Copy, Check, MessageSquare } from 'lucide-react';
 
-const PromptGenerator = ({ pulseData, cpiData, unrateData, riskData }) => {
+const PromptGenerator = ({ pulseData, cpiData, unrateData, riskData, yieldGapData, creditSpreadData }) => {
     const [copied, setCopied] = useState(false);
 
     const formatDataForPrompt = () => {
@@ -28,6 +28,19 @@ const PromptGenerator = ({ pulseData, cpiData, unrateData, riskData }) => {
             const prevRisk = riskData[riskData.length - 2];
             gsRatio = currentRisk.ratio.toFixed(2);
             gsChange = (currentRisk.ratio - prevRisk.ratio).toFixed(2);
+        }
+
+        // Yield Gap Data
+        const usYieldGap = yieldGapData?.us?.current?.toFixed(2) || 'N/A';
+        const usYieldStatus = yieldGapData?.us?.status || 'N/A';
+
+        const krYieldGap = yieldGapData?.kr?.current?.toFixed(2) || 'N/A';
+        const krYieldStatus = yieldGapData?.kr?.status || 'N/A';
+
+        // Credit Spread Data
+        let currentCreditSpread = 'N/A';
+        if (creditSpreadData && creditSpreadData.length > 0) {
+            currentCreditSpread = creditSpreadData[creditSpreadData.length - 1].spread.toFixed(2);
         }
 
         const today = new Date().toLocaleDateString('ko-KR', {
@@ -61,6 +74,11 @@ const PromptGenerator = ({ pulseData, cpiData, unrateData, riskData }) => {
 - 미국 실업률: ${latestUnrate}%
 - 금/은 비율(Gold/Silver Ratio): ${gsRatio} (전일대비: ${gsChange > 0 ? '+' : ''}${gsChange})
   (참고: 금/은 비율이 80을 넘으면 경기 침체 우려, 급등 시 주식 시장 조정 가능성 높음)
+- 🇺🇸 미국 일드갭(Yield Gap): ${usYieldGap}% (${usYieldStatus})
+- 🇰🇷 한국 일드갭(Yield Gap): ${krYieldGap}% (${krYieldStatus})
+  (참고: 일드갭 = 주식기대수익률 - 국채금리. 마이너스거나 낮을수록 주식이 채권보다 고평가됨)
+- 크레딧 스프레드(Credit Spread): ${currentCreditSpread}%p
+  (참고: 회사채(AA-)와 국고채(3년) 차이. 1.3% 이상이면 부도 위험 증가로 현금화 필요)
 
 [요청사항]
 1. 시장 분위기 3줄 요약: 현재 시장이 탐욕 구간인지, 공포 구간인지, 관망세인지 명확히 진단해줘.
@@ -85,8 +103,8 @@ const PromptGenerator = ({ pulseData, cpiData, unrateData, riskData }) => {
         <button
             onClick={handleCopy}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border shadow-sm ${copied
-                    ? 'bg-green-500 border-green-500 text-white shadow-green-500/20'
-                    : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-700'
+                ? 'bg-green-500 border-green-500 text-white shadow-green-500/20'
+                : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-700'
                 }`}
             title="AI 분석용 프롬프트 복사"
         >
