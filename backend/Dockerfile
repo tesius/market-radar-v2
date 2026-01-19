@@ -8,6 +8,9 @@ WORKDIR /app
 ENV TZ=Asia/Seoul
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
+# 2-2. 캐시 디렉토리 설정 (yfinance 등 라이브러리가 사용하는 캐시 위치를 임시 폴더로 지정)
+ENV XDG_CACHE_HOME=/tmp
+
 # 3. 의존성 파일 먼저 복사 (캐싱 효율을 위해 소스보다 먼저)
 COPY requirements.txt .
 
