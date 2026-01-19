@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from services import market_data # 방금 만든 모듈 import
+from services import stock_service, macro_service, bond_service, analysis_service
 
 app = FastAPI()
 
@@ -25,29 +25,29 @@ def read_root():
 # 1. 상단 8개 지표 (Market Pulse)
 @app.get("/api/market/pulse")
 def get_pulse():
-    return market_data.get_market_pulse()
+    return stock_service.get_market_pulse()
 
 # 2. CPI 데이터 (거시경제)
 @app.get("/api/macro/cpi")
 def get_cpi():
-    return market_data.get_macro_data("CPIAUCSL", "US CPI (Consumer Price Index)")
+    return macro_service.get_macro_data("CPIAUCSL", "US CPI (Consumer Price Index)")
 
 # 3. 실업률 데이터 (거시경제)
 @app.get("/api/macro/unrate")
 def get_unrate():
-    return market_data.get_macro_data("UNRATE", "US Unemployment Rate")
+    return macro_service.get_macro_data("UNRATE", "US Unemployment Rate")
 
 # 4. 위험 신호 (금/은 비율)
 @app.get("/api/macro/risk-ratio")
 def get_risk_radar():
-    return market_data.get_risk_ratio()
+    return analysis_service.get_risk_ratio()
 
 # 5. 크레딧 스프레드 (Credit Spread)
 @app.get("/api/market/credit-spread")
 def get_credit_spread():
-    return market_data.get_credit_spread_data()
+    return bond_service.get_credit_spread_data()
 
 # 6. 일드갭 (Yield Gap)
 @app.get("/api/market/yield-gap")
 def get_yield_gap():
-    return market_data.get_yield_gap_data()
+    return analysis_service.get_yield_gap_data()
