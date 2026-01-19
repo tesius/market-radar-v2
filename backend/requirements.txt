@@ -7,3 +7,5 @@ yfinance==1.0
 uvicorn==0.40.0
 fredapi==0.5.2
 python-dotenv==1.2.1
+pykrx==1.0.51
+setuptools==80.9.0
