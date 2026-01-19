@@ -4,6 +4,10 @@ FROM python:3.13-slim-bookworm
 # 2. 작업 디렉토리 설정
 WORKDIR /app
 
+# 2-1. 타임존 설정 (Asia/Seoul)
+ENV TZ=Asia/Seoul
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # 3. 의존성 파일 먼저 복사 (캐싱 효율을 위해 소스보다 먼저)
 COPY requirements.txt .
 

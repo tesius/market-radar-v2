@@ -2,6 +2,7 @@
 
 import yfinance as yf
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo # 타임존 처리를 위해 추가
 from cachetools import TTLCache, cached
 import pandas as pd
 import numpy as np # 데이터 처리를 위해 필요
@@ -121,15 +122,18 @@ def get_macro_data(series_id, label):
         mock = []
         base = 3.5 if "Unemployment" in label else 3.0 # CPI도 이제 %니까 3.0 근처로
         for i in range(24):
-            d = datetime.now() - timedelta(days=30 * (23 - i))
+            # KST 기준 오늘 날짜 (목 데이터 생성 시에도 일관성 유지)
+            d = datetime.now(ZoneInfo("Asia/Seoul")) - timedelta(days=30 * (23 - i))
             val = base + (i % 5) * 0.1
             mock.append({"date": d.strftime("%Y-%m-%d"), "value": round(val, 2)})
         return mock
 
     try:
         # 데이터 넉넉하게 가져오기 (변동률 계산 위해 1년 더 필요)
+        # KST 기준으로 '현재' 시점 설정
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
         start = datetime(2014, 1, 1) 
-        end = datetime.now()
+        end = now_kst
         df = get_fred_data(series_id, start, end)
         
         if df.empty: raise ValueError("Empty Data")
@@ -266,7 +270,8 @@ def get_risk_ratio():
         print("⚠️ Risk 데이터 부족으로 Mock Data 생성")
         base_sp = 4500
         base_ratio = 80
-        today = datetime.now()
+        # KST 기준 오늘
+        today = datetime.now(ZoneInfo("Asia/Seoul"))
         mock_result = []
         for i in range(200):
             d = today - timedelta(days=200-i)
@@ -297,6 +302,7 @@ def get_credit_spread_data():
             d = today - timedelta(days=30 * (179 - i))
             
             # 국고채 3년 (약 3.0 ~ 4.5% 사이 변동)
+            # numpy random fix for deterministic behavior if needed, or simple update
             gov_val = 3.5 + (np.sin(i / 20) * 1.0) + (np.random.normal(0, 0.05))
             if gov_val < 1.0: gov_val = 1.0
             
@@ -320,8 +326,9 @@ def get_credit_spread_data():
         return generate_mock_spread()
 
     try:
-        # 오늘 날짜와 15년 전 날짜 구하기
-        end_date = datetime.now().strftime("%Y%m%d")
+        # KST 기준 오늘 날짜
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+        end_date = now_kst.strftime("%Y%m%d")
         # 2011년 1월 1일부터 (약 15년)
         start_date = "20110101"
 
@@ -449,8 +456,10 @@ def get_yield_gap_data():
         current_gap = (1 / current_pe) * 100 - current_yield_10y
         
         # 5년 평균 (FRED 데이터 활용)
-        start_5y = (datetime.now() - timedelta(days=1825)).strftime('%Y-%m-%d')
-        end_now = datetime.now().strftime('%Y-%m-%d')
+        # KST 기준 오늘
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+        start_5y = (now_kst - timedelta(days=1825)).strftime('%Y-%m-%d')
+        end_now = now_kst.strftime('%Y-%m-%d')
         
         # 10년물 금리 히스토리
         yield_10y_hist = get_fred_data("DGS10", start_5y, end_now)
@@ -480,13 +489,14 @@ def get_yield_gap_data():
     # --- 2. KR Market (KOSPI) ---
     kr_data = {"current": 0, "avg": 0, "status": "데이터 없음", "pe": 0, "yield": 0}
     try:
-        today_str = datetime.now().strftime("%Y%m%d")
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+        today_str = now_kst.strftime("%Y%m%d")
         
         # 1) KOSPI PER (pykrx)
         curr_pe_kr = 0
         # 최근 5일 중 데이터 있는 날 찾기
         for i in range(5):
-            target_date = (datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
+            target_date = (now_kst - timedelta(days=i)).strftime("%Y%m%d")
             try:
                 # 1001 = 코스피
                 df_fund = stock.get_index_fundamental(target_date, target_date, "1001")
@@ -504,8 +514,9 @@ def get_yield_gap_data():
         kr_yield = 3.5 # Fallback
         if ecos_key:
             # 817Y002(시장금리 일별), 010210000(국고채 10년)
+            # 817Y002(시장금리 일별), 010210000(국고채 10년)
             # 최근 데이터만 필요하므로 시작일을 7일 전으로 설정
-            start_recent = (datetime.now() - timedelta(days=7)).strftime("%Y%m%d")
+            start_recent = (now_kst - timedelta(days=7)).strftime("%Y%m%d")
             url = f"http://ecos.bok.or.kr/api/StatisticSearch/{ecos_key}/json/kr/1/10/817Y002/D/{start_recent}/{today_str}/010210000"
             resp = requests.get(url).json()
             if 'StatisticSearch' in resp:
@@ -516,7 +527,7 @@ def get_yield_gap_data():
         # 3) 5년 평균
         # KOSPI 5년 PER 평균
         avg_pe_kr_5y = 11.0 # Fallback
-        start_5y_kr = (datetime.now() - timedelta(days=1825)).strftime('%Y%m%d')
+        start_5y_kr = (now_kst - timedelta(days=1825)).strftime('%Y%m%d')
         try:
              df_hist_pe = stock.get_index_fundamental(start_5y_kr, today_str, "1001")
              if not df_hist_pe.empty and 'PER' in df_hist_pe.columns:
