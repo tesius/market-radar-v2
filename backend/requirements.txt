@@ -9,3 +9,4 @@ fredapi==0.5.2
 python-dotenv==1.2.1
 pykrx==1.0.51
 setuptools==80.9.0
+apscheduler==3.10.4

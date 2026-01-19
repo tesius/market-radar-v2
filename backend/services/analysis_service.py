@@ -27,9 +27,9 @@ def get_risk_ratio():
         # 1. 데이터 다운로드
         # auto_adjust=True: 수정 주가 반영
         print("📥 Downloading Risk Data...")
-        gold = yf.download("GC=F", period="2y", interval="1d", progress=False, auto_adjust=True)
-        silver = yf.download("SI=F", period="2y", interval="1d", progress=False, auto_adjust=True)
-        sp500 = yf.download("^GSPC", period="2y", interval="1d", progress=False, auto_adjust=True)
+        gold = yf.download("GC=F", period="15y", interval="1d", progress=False, auto_adjust=True)
+        silver = yf.download("SI=F", period="15y", interval="1d", progress=False, auto_adjust=True)
+        sp500 = yf.download("^GSPC", period="15y", interval="1d", progress=False, auto_adjust=True)
 
         # 2. 안전한 종가 추출 헬퍼 (yfinance 버전 호환성 확보)
         def get_safe_close(df, name):
@@ -248,12 +248,18 @@ def get_yield_gap_data():
             target_date = (now_kst - timedelta(days=i)).strftime("%Y%m%d")
             try:
                 # 1001 = 코스피
-                df_fund = stock.get_index_fundamental(target_date, target_date, "1001")
-                if not df_fund.empty:
-                    # pykrx 버전에 따라 컬럼명이 다를 수 있음. 보통 'PER'
-                    if 'PER' in df_fund.columns:
-                        curr_pe_kr = df_fund['PER'].iloc[-1]
-                        break
+                # [Fix] PyKrx API 불안정 및 로깅 버그에 대한 방어 코드
+                try:
+                    df_fund = stock.get_index_fundamental(target_date, target_date, "1001")
+                    if not df_fund.empty:
+                        # pykrx 버전에 따라 컬럼명이 다를 수 있음. 보통 'PER'
+                        if 'PER' in df_fund.columns:
+                            curr_pe_kr = df_fund['PER'].iloc[-1]
+                            break
+                except Exception as e:
+                    # JSONDecodeError, Logging Error 등 무시하고 넘어감
+                    print(f"⚠️ PyKrx Fetch Warning ({target_date}): {e}")
+                    continue
             except:
                 continue
         
@@ -262,7 +268,6 @@ def get_yield_gap_data():
         # 2) KR 10Y Yield (ECOS API)
         kr_yield = 3.5 # Fallback
         if ecos_key:
-            # 817Y002(시장금리 일별), 010210000(국고채 10년)
             # 817Y002(시장금리 일별), 010210000(국고채 10년)
             # 최근 데이터만 필요하므로 시작일을 7일 전으로 설정
             start_recent = (now_kst - timedelta(days=7)).strftime("%Y%m%d")
@@ -280,9 +285,13 @@ def get_yield_gap_data():
         avg_pe_kr_5y = 11.0 # Fallback
         start_5y_kr = (now_kst - timedelta(days=1825)).strftime('%Y%m%d')
         try:
-             df_hist_pe = stock.get_index_fundamental(start_5y_kr, today_str, "1001")
-             if not df_hist_pe.empty and 'PER' in df_hist_pe.columns:
-                 avg_pe_kr_5y = df_hist_pe['PER'].replace(0, np.nan).dropna().mean()
+             # [Fix] PyKrx API 불안정 및 로깅 버그에 대한 방어 코드
+             try:
+                df_hist_pe = stock.get_index_fundamental(start_5y_kr, today_str, "1001")
+                if not df_hist_pe.empty and 'PER' in df_hist_pe.columns:
+                    avg_pe_kr_5y = df_hist_pe['PER'].replace(0, np.nan).dropna().mean()
+             except Exception as e:
+                 print(f"⚠️ PyKrx History Warning: {e}")
         except Exception as e:
              print(f"PyKrx Hist Error: {e}")
              
