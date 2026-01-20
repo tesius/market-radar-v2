@@ -29,7 +29,9 @@ DATA_STORE = {
     "unrate": {},
     "risk_ratio": [],
     "credit_spread": [],
-    "yield_gap": {}
+    "yield_gap": {},
+    "rate_spread": [],
+    "us_rate_spread": []
 }
 
 def update_all_data():
@@ -74,6 +76,20 @@ def update_all_data():
         logger.info("✅ [Scheduler] Yield Gap updated")
     except Exception as e:
         logger.error(f"❌ [Scheduler] Yield Gap failed: {e}")
+
+    try:
+        # 6. Rate Spread
+        DATA_STORE["rate_spread"] = analysis_service.get_rate_spread_data()
+        logger.info("✅ [Scheduler] Rate Spread updated")
+    except Exception as e:
+        logger.error(f"❌ [Scheduler] Rate Spread failed: {e}")
+
+    try:
+        # 7. US Rate Spread
+        DATA_STORE["us_rate_spread"] = analysis_service.get_us_rate_spread_data()
+        logger.info("✅ [Scheduler] US Rate Spread updated")
+    except Exception as e:
+        logger.error(f"❌ [Scheduler] US Rate Spread failed: {e}")
         
     logger.info("✨ [Scheduler] All updates completed.")
 

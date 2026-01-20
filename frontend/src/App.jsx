@@ -6,6 +6,8 @@ import MetricCard from './components/MetricCard';
 import MacroChart from './components/MacroChart'; // 추가
 import RiskChart from './components/RiskChart';   // 추가
 import CreditSpreadChart from './components/CreditSpreadChart'; // 추가
+import RateSpreadChart from './components/RateSpreadChart'; // 추가
+import USRateSpreadChart from './components/USRateSpreadChart'; // 추가
 import { Activity, RefreshCw } from 'lucide-react';
 import PromptGenerator from './components/PromptGenerator';
 import MarketGauge from './components/MarketGauge';
@@ -207,6 +209,18 @@ function App() {
         {/* 4. Credit Market (크레딧 스프레드) */}
         <section>
           <CreditSpreadChart data={creditSpreadData} loading={loading} isDarkMode={isDarkMode} />
+        </section>
+
+        {/* 5. Short-term Rate (금리 스프레드) */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <span className="w-1 h-6 bg-red-500 rounded-full"></span>
+            단기 자금 동향 (Call vs Base)
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <RateSpreadChart isDarkMode={isDarkMode} />
+            <USRateSpreadChart isDarkMode={isDarkMode} />
+          </div>
         </section>
 
         <footer className="text-center text-gray-500 dark:text-gray-600 text-sm py-8 transition-colors duration-300">

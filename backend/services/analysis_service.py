@@ -323,3 +323,186 @@ def get_yield_gap_data():
         "us": us_data,
         "kr": kr_data
     }
+
+# 6. Rate Spread (Base Rate vs Call Rate)
+@cached(cache=TTLCache(maxsize=100, ttl=86400))
+def get_rate_spread_data():
+    """
+    콜금리(Call Rate)와 한국은행 기준금리(Base Rate)를 비교하여 Spread를 계산
+    Data Source: ECOS API
+    - 기준금리: 722Y001 (정책금리) -> 0101000 (한국은행 기준금리)
+    - 콜금리: 817Y002 (시장금리) -> 010101000 (콜금리 1일)
+    """
+    
+    # ECOS API Helper
+    def get_ecos_series(stat_code, item_code, start_date, end_date):
+        if not ecos_key:
+            return pd.Series(dtype=float)
+            
+        url = f"http://ecos.bok.or.kr/api/StatisticSearch/{ecos_key}/json/kr/1/10000/{stat_code}/D/{start_date}/{end_date}/{item_code}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                if 'StatisticSearch' in data and 'row' in data['StatisticSearch']:
+                    rows = data['StatisticSearch']['row']
+                    # DataFrame 변환
+                    df = pd.DataFrame(rows)
+                    df['TIME'] = pd.to_datetime(df['TIME'], format='%Y%m%d')
+                    df['DATA_VALUE'] = pd.to_numeric(df['DATA_VALUE'])
+                    df = df.set_index('TIME')
+                    return df['DATA_VALUE']
+        except Exception as e:
+            print(f"⚠️ ECOS Fetch Error ({stat_code}-{item_code}): {e}")
+            
+        return pd.Series(dtype=float)
+
+    try:
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+        end_str = now_kst.strftime("%Y%m%d")
+        # 최근 10년 (넉넉하게 3700일)
+        start_str = (now_kst - timedelta(days=3700)).strftime("%Y%m%d")
+        
+        # 1. 데이터 가져오기
+        print("📥 Downloading Rate Data (ECOS)...")
+        # 기준금리 (722Y001 / 0101000)
+        base_series = get_ecos_series("722Y001", "0101000", start_str, end_str)
+        # 콜금리 (817Y002 / 010101000)
+        call_series = get_ecos_series("817Y002", "010101000", start_str, end_str)
+        
+        if base_series.empty or call_series.empty:
+            raise ValueError("ECOS Data Empty")
+            
+        # 2. 데이터 병합
+        base_series.name = 'base_rate'
+        call_series.name = 'call_rate'
+        
+        # Outer Join으로 날짜 맞춤
+        df = pd.concat([base_series, call_series], axis=1)
+        df = df.ffill().dropna()
+        
+        # 필터링 제거 (Frontend에서 처리)
+        
+        # 3. Spread 계산 (기준금리 - 콜금리) -> 보통 콜금리가 기준금리보다 높으면 유동성 부족
+        # User Request: [기준금리 - 콜금리]
+        df['spread'] = df['base_rate'] - df['call_rate']
+        
+        # 4. 포맷팅
+        df = df.reset_index()
+        df.rename(columns={'index': 'date', 'TIME': 'date'}, inplace=True)
+        
+        # 날짜 포맷 변경
+        df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+        df['base_rate'] = df['base_rate'].round(2)
+        df['call_rate'] = df['call_rate'].round(2)
+        df['spread'] = df['spread'].round(2)
+        
+        result = df[['date', 'base_rate', 'call_rate', 'spread']].to_dict('records')
+        
+        print(f"✅ Rate Spread Data Loaded: {len(result)} rows")
+        return result
+
+    except Exception as e:
+        print(f"❌ [Rate Spread Error]: {e}")
+        # Mock Data
+        print("⚠️ Rate Spread Mock Data Used")
+        mock = []
+        curr = now_kst
+        base = 3.50
+        # 10년치 Mock 데이터 (3650일)
+        for i in range(3650):
+            d = curr - timedelta(days=3650-i)
+            # 콜금리는 기준금리 근처에서 변동
+            call = base + (np.sin(i / 5) * 0.1) 
+            spread = base - call
+            mock.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "base_rate": base,
+                "call_rate": round(call, 2),
+                "spread": round(spread, 2)
+            })
+        return mock
+
+# 7. US Rate Spread (FFTR vs EFFR)
+@cached(cache=TTLCache(maxsize=100, ttl=86400))
+def get_us_rate_spread_data():
+    """
+    미국 기준금리(FFTR Upper)와 실효연방기금금리(EFFR)를 비교하여 Spread 계산
+    Data Source: FRED
+    - FFTR: DFEDTARU (Federal Funds Target Range - Upper Limit)
+    - EFFR: DFF (Effective Federal Funds Rate)
+    """
+    try:
+        now_kst = datetime.now(ZoneInfo("Asia/Seoul"))
+        # 최근 10년 치 데이터
+        end_date = now_kst
+        start_date = now_kst - timedelta(days=3700)
+        
+        # FRED 데이터 가져오기 (macro_service 함수 재사용)
+        print("📥 Downloading US Rate Data (FRED)...")
+        # 1. FFTR (Base Rate)
+        df_fftr = get_fred_data("DFEDTARU", start_date, end_date)
+        # 2. EFFR (Call Rate)
+        df_effr = get_fred_data("DFF", start_date, end_date)
+        
+        if df_fftr.empty or df_effr.empty:
+             # FRED API 키가 없거나 할당량 초과 시
+             raise ValueError("FRED Data Empty")
+             
+        # 데이터프레임 병합 준비
+        df_fftr = df_fftr.rename(columns={"DFEDTARU": "base_rate"})
+        df_effr = df_effr.rename(columns={"DFF": "call_rate"})
+        
+        # 'calculated_value' 컬럼 제거 (get_fred_data에서 생성됨)
+        if 'calculated_value' in df_fftr.columns: del df_fftr['calculated_value']
+        if 'calculated_value' in df_effr.columns: del df_effr['calculated_value']
+
+        # Join
+        df = pd.concat([df_fftr, df_effr], axis=1)
+        
+        # 전처리 (주말/공휴일 ffill)
+        df = df.ffill().dropna()
+        
+        # Spread 계산 (Base - Call)
+        # 미국은 보통 EFFR이 FFTR 범위 내에 있어야 함. 
+        # Base(상단) - Call(실효) > 0 이어야 정상. 
+        # Call이 Base를 뚫으면 유동성 경색 신호.
+        df['spread'] = df['base_rate'] - df['call_rate']
+        
+        # 포맷팅
+        df = df.reset_index()
+        # index 이름이 DATE가 아닐수도 있으니 안전장치
+        if 'index' in df.columns:
+             df.rename(columns={'index': 'date'}, inplace=True)
+        elif 'DATE' in df.columns:
+             df.rename(columns={'DATE': 'date'}, inplace=True)
+             
+        df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+        df['base_rate'] = df['base_rate'].round(2)
+        df['call_rate'] = df['call_rate'].round(2)
+        df['spread'] = df['spread'].round(2)
+        
+        result = df[['date', 'base_rate', 'call_rate', 'spread']].to_dict('records')
+        
+        print(f"✅ US Rate Spread Data Loaded: {len(result)} rows")
+        return result
+
+    except Exception as e:
+        print(f"❌ [US Rate Spread Error]: {e}")
+        # Mock Data (10년치)
+        print("⚠️ US Rate Spread Mock Data Used")
+        mock = []
+        curr = datetime.now(ZoneInfo("Asia/Seoul"))
+        base = 5.50
+        for i in range(3650):
+            d = curr - timedelta(days=3650-i)
+            # EFFR은 보통 FFTR보다 약간 낮음
+            call = base - 0.05 + (np.sin(i / 100) * 0.1)
+            spread = base - call
+            mock.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "base_rate": base,
+                "call_rate": round(call, 2),
+                "spread": round(spread, 2)
+            })
+        return mock

@@ -71,3 +71,13 @@ def get_credit_spread():
 @app.get("/api/market/yield-gap")
 def get_yield_gap():
     return scheduler.DATA_STORE["yield_gap"]
+
+# 7. 콜금리 vs 기준금리 스프레드 (Rate Spread)
+@app.get("/api/macro/rate-spread")
+def get_rate_spread():
+    return scheduler.DATA_STORE["rate_spread"]
+
+# 8. 미국 금리 스프레드 (US Rate Spread)
+@app.get("/api/macro/us-rate-spread")
+def get_us_rate_spread():
+    return scheduler.DATA_STORE["us_rate_spread"]
