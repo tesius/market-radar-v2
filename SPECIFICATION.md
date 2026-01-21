@@ -1,123 +1,71 @@
 # Market Radar v2.0 - Project Specification
 
 ## 1. Overview
-**Market Radar v2.0** is a real-time financial dashboard designed to monitor global market trends, macroeconomic indicators, and risk signals. It provides a consolidated view of key asset classes, economic health, and potential market risks using a modern React frontend and a robust FastAPI backend.
+**Market Radar v2.0** is a real-time financial dashboard designed to monitor global market trends, macroeconomic indicators, and risk signals. It provides a consolidated view of key asset classes, economic health, and potential market risks using a modern React frontend and a robust FastAPI backend powered by APScheduler for background data synchronization.
 
 ## 2. System Architecture
-- **Frontend**: React (Vite), Tailwind CSS, Recharts, Lucide React icons.
-- **Backend**: FastAPI (Python), Pandas, yfinance, cachetools.
+- **Frontend**: React (Vite), Tailwind CSS (Dark Mode), Recharts, Lucide React icons.
+- **Backend**: FastAPI (Python), APScheduler (Background Tasks), Pandas, NumPy.
+- **Data Sources**: yfinance, pykrx, FRED API, ECOS API (Bank of Korea).
+- **Persistence**: In-Memory Data Store (periodically updated by scheduler).
 - **Communication**: REST API (Axios).
-- **Deployment**: Localhost (Dev mode).
 
 ## 3. Backend Specification
-### 3.1. API Endpoints
+### 3.1. Architecture Pattern
+- **Service Layer**: Business logic separated by domain (`stock_service.py`, `macro_service.py`, `bond_service.py`, `analysis_service.py`).
+- **Scheduler**: `APScheduler` runs background jobs every 20 minutes to fetch new data and update the global `DATA_STORE`.
+- **API endpoints**: Read directly from `DATA_STORE` for < 10ms response times.
+
+### 3.2. API Endpoints
 Base URL: `http://localhost:8000`
 
-#### **GET /api/market/pulse**
-- **Purpose**: Retrieves current data for 8 key market indicators.
-- **Source**: `yfinance` (Real-time/Delayed).
-- **Indicators**:
-  - `^TNX` (US 10Y Treasury)
-  - `KRW=X` (USD/KRW)
-  - `^VIX` (Volatility Index)
-  - `^NDX` (Nasdaq 100)
-  - `^GSPC` (S&P 500)
-  - `^N225` (Nikkei 225)
-  - `EEM` (Emerging Markets)
-  - `^KS11` (KOSPI)
-- **Response Structure**:
-  ```json
-  [
-    {
-      "ticker": "^TNX",
-      "name": "미국 10년물 금리",
-      "price": 4.12,
-      "change": 0.05,
-      "change_percent": 1.23,
-      "display_change": "+0.05 (+1.23%)",
-      "history": [{"date": "2024-01-01", "value": 4.0}, ...]
-    },
-    ...
-  ]
-  ```
+#### **1. Market Pulse**
+- **GET** `/api/market/pulse`
+- **Data**: Global assets (S&P 500, KOSPI, Nikkei, Rates, VIX, etc.)
+- **Fields**: Price, Change, Change %, Sparkline (3mo).
 
-#### **GET /api/macro/cpi**
-- **Purpose**: Retrieves US CPI (Consumer Price Index) Year-over-Year (YoY) change.
-- **Source**: FRED (`CPIAUCSL`) via `pandas_datareader` (Fallback: Mock Data).
-- **Logic**: Calculates YoY % change from index values.
-- **Response Structure**:
-  ```json
-  {
-    "title": "US CPI (Consumer Price Index)",
-    "data": [{"date": "2024-01-01", "value": 3.4}, ...]
-  }
-  ```
+#### **2. Macro Indicators**
+- **GET** `/api/macro/cpi`
+  - US CPI YoY % Change (Target: 2%).
+- **GET** `/api/macro/unrate`
+  - US Unemployment Rate (Natural Rate check).
+- **GET** `/api/macro/risk-ratio`
+  - Gold/Silver Ratio vs S&P 500 correlation.
 
-#### **GET /api/macro/unrate**
-- **Purpose**: Retrieves US Unemployment Rate.
-- **Source**: FRED (`UNRATE`) via `pandas_datareader` (Fallback: Mock Data).
-- **Response Structure**: Similar to CPI.
+#### **3. Credit & Rates**
+- **GET** `/api/market/credit-spread`
+  - **KR Credit Spread**: Corp Bond AA- (3Y) minus Gov Bond (3Y). Provides insight into corporate credit risk.
+- **GET** `/api/market/yield-gap`
+  - **US**: S&P 500 Earnings Yield vs US 10Y Treasury.
+  - **KR**: KOSPI Earnings Yield vs KR 10Y Treasury.
+  - **Interpretation**: Current gap vs 5-Year Average (Undervalued/Overvalued).
+- **GET** `/api/macro/rate-spread`
+  - **KR Call-Base**: Call Rate (1D) vs Base Rate.
+- **GET** `/api/macro/us-rate-spread`
+  - **US Spread**: EFFR vs 3M Treasury.
 
-#### **GET /api/macro/risk-ratio**
-- **Purpose**: Analyzes market risk by comparing Gold/Silver ratio with S&P 500.
-- **Source**: `yfinance` (`GC=F`, `SI=F`, `^GSPC`).
-- **Logic**: 
-  - Fetches 1-year history.
-  - Merges dataframes on Date.
-  - Calculates `Ratio = Gold / Silver`.
-  - Returns `Ratio` and `S&P 500` price for correlation analysis.
-- **Response Structure**:
-  ```json
-  [
-    {
-      "date": "2024-01-01",
-      "ratio": 85.4,
-      "sp500": 4700.5
-    },
-    ...
-  ]
-  ```
-
-### 3.2. Caching Strategy
-- **Stock Data (Pulse)**: TTL 600s (10 mins).
-- **Risk Data**: TTL 600s (10 mins).
-- **Macro Data**: TTL 86400s (24 hours).
-- **Implementation**: `cachetools.TTLCache`.
-
-### 3.3. Fallback Mechanisms
-- **Market Data**: Skips individual tickers on failure.
-- **Macro Data**: Generates synthetic mock data if FRED API fails or data is empty.
-- **Risk Data**: Generates synthetic mock data if insufficient history (< 10 points).
+### 3.3. Data Providers
+- **yfinance**: Global tickers (`^GSPC`, `^TNX`, `KRW=X`).
+- **pykrx**: Korean market fundamentals (KOSPI PER/PBR).
+- **FRED**: US Macro data (`CPIAUCSL`, `UNRATE`, `DGS10`, `EFFR`, `DTB3`).
+- **ECOS (Bank of Korea)**: KR Treasury Bonds (3Y, 10Y), Base Rate, Call Rate.
 
 ## 4. Frontend Specification
-### 4.1. Components
-#### **App.jsx** (Main Container)
-- Fetches all data on mount (`useEffect`).
-- Manages state: `pulseData`, `cpiData`, `unrateData`, `riskData`.
-- Handles loading states and "Refresh" button.
-- Uses `Promise.allSettled` to ensure partial failures (e.g., Macro failing) don't block the UI.
+### 4.1. Core Components
+- **MetricCard**: Reusable card for Market Pulse items with sparklines.
+- **MacroChart**: Area charts for economic indicators with target references.
+- **RiskChart**: Composite chart (Line + Area) for Gold/Silver ratio.
+- **CreditSpreadChart**: Visualization of credit risk over time.
+- **MarketGauge**: Custom gauge component for Yield Gap valuation judgment.
+- **RateSpreadChart**: Bar/Line chart for short-term liquidity monitoring.
 
-#### **MetricCard.jsx**
-- Displays single indicator: Name, Value, Change (Abs/%), Sparkline (AreaChart).
-- Dynamic styling: Green (Positive), Red (Negative), Gray (Neutral).
-
-#### **MacroChart.jsx**
-- Displays Macro indicators (CPI, Unemployment).
-- Feature: Time range filtering (1Y, 5Y, 10Y, MAX).
-- Visual: Gradient AreaChart with Reference Line (Target 2% for CPI).
-
-#### **RiskChart.jsx**
-- Composed Chart (Line + Area) to show correlation/divergence.
-- Dual Y-Axis: Left (S&P 500), Right (Gold/Silver Ratio).
+### 4.2. Features
+- **Dark/Light Mode**: Fully supported via Tailwind `dark:` classes.
+- **Responsive Design**: Mobile-first grid layouts.
+- **Auto-Refresh**: Data re-fetched on user request or page reload.
+- **Resilient UI**: Skeleton loaders during data fetch; Error states for missing data.
 
 ## 5. Technology Stack Details
-- **Python Version**: 3.9+ recommended.
-- **Key Libraries**:
-  - `fastapi`, `uvicorn`: Web Server.
-  - `yfinance`: Market Data.
-  - `pandas`, `pandas_datareader`: Data manipulation.
-  - `cachetools`: Caching.
-- **React**:
-  - `recharts`: Visualization.
-  - `tailwindcss`: Styling.
-  - `axios`: API Client.
+- **Python**: 3.11+
+- **Backend Libs**: `fastapi`, `uvicorn`, `apscheduler`, `yfinance`, `pykrx`, `fredapi`, `requests`, `pandas`.
+- **Frontend Libs**: `react`, `recharts`, `tailwindcss`, `axios`, `lucide-react`.
