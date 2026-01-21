@@ -26,7 +26,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 const RateSpreadChart = ({ isDarkMode = true }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [timeRange, setTimeRange] = useState('ALL');
+    const [timeRange, setTimeRange] = useState('1Y');
 
     useEffect(() => {
         const fetchData = async () => {
