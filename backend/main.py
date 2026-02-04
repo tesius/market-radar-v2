@@ -30,54 +30,54 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"], 
+    allow_origins=origins,
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
 )
 
 @app.get("/")
-def read_root():
+async def read_root():
     return {"status": "Market Radar v2.0 API Ready"}
 
 # --- Endpoints now read from Memory (DATA_STORE) ---
 
 # 1. 상단 8개 지표 (Market Pulse)
 @app.get("/api/market/pulse")
-def get_pulse():
+async def get_pulse():
     return scheduler.DATA_STORE["market_pulse"]
 
 # 2. CPI 데이터 (거시경제)
 @app.get("/api/macro/cpi")
-def get_cpi():
+async def get_cpi():
     return scheduler.DATA_STORE["cpi"]
 
 # 3. 실업률 데이터 (거시경제)
 @app.get("/api/macro/unrate")
-def get_unrate():
+async def get_unrate():
     return scheduler.DATA_STORE["unrate"]
 
 # 4. 위험 신호 (금/은 비율)
 @app.get("/api/macro/risk-ratio")
-def get_risk_radar():
+async def get_risk_radar():
     return scheduler.DATA_STORE["risk_ratio"]
 
 # 5. 크레딧 스프레드 (Credit Spread)
 @app.get("/api/market/credit-spread")
-def get_credit_spread():
+async def get_credit_spread():
     return scheduler.DATA_STORE["credit_spread"]
 
 # 6. 일드갭 (Yield Gap)
 @app.get("/api/market/yield-gap")
-def get_yield_gap():
+async def get_yield_gap():
     return scheduler.DATA_STORE["yield_gap"]
 
 # 7. 콜금리 vs 기준금리 스프레드 (Rate Spread)
 @app.get("/api/macro/rate-spread")
-def get_rate_spread():
+async def get_rate_spread():
     return scheduler.DATA_STORE["rate_spread"]
 
 # 8. 미국 금리 스프레드 (US Rate Spread)
 @app.get("/api/macro/us-rate-spread")
-def get_us_rate_spread():
+async def get_us_rate_spread():
     return scheduler.DATA_STORE["us_rate_spread"]

@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend, ReferenceLine
 } from 'recharts';
-import api from '../api';
 
 // 🎨 커스텀 툴팁
 const CustomTooltip = ({ active, payload, label }) => {
@@ -23,25 +22,8 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-const RateSpreadChart = ({ isDarkMode = true }) => {
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
+const RateSpreadChart = ({ data = [], isDarkMode = true }) => {
     const [timeRange, setTimeRange] = useState('1Y');
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await api.get('/api/macro/rate-spread');
-                setData(response.data);
-            } catch (error) {
-                console.error("Failed to fetch rate spread data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
 
     // 기간 필터링
     // 기간 필터링 및 데이터 최적화 (Downsampling)
@@ -71,7 +53,7 @@ const RateSpreadChart = ({ isDarkMode = true }) => {
         return targetData;
     }, [data, timeRange]);
 
-    if (loading) {
+    if (!data || data.length === 0) {
         return <div className="h-[350px] bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse border border-gray-200 dark:border-gray-700"></div>;
     }
 

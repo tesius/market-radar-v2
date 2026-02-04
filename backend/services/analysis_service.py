@@ -4,6 +4,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from cachetools import TTLCache, cached
+from concurrent.futures import ThreadPoolExecutor
 import requests
 from pykrx import stock
 from dotenv import load_dotenv
@@ -24,12 +25,23 @@ ecos_key = os.getenv("ECOS_API_KEY")
 @cached(cache=risk_cache) 
 def get_risk_ratio():
     try:
-        # 1. 데이터 다운로드
+        # 1. 데이터 다운로드 (병렬)
         # auto_adjust=True: 수정 주가 반영
-        print("📥 Downloading Risk Data...")
-        gold = yf.download("GC=F", period="15y", interval="1d", progress=False, auto_adjust=True)
-        silver = yf.download("SI=F", period="15y", interval="1d", progress=False, auto_adjust=True)
-        sp500 = yf.download("^GSPC", period="15y", interval="1d", progress=False, auto_adjust=True)
+        print("📥 Downloading Risk Data (parallel)...")
+        tickers = {"gold": "GC=F", "silver": "SI=F", "sp500": "^GSPC"}
+        downloads = {}
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {
+                executor.submit(
+                    yf.download, ticker, period="5y", interval="1d",
+                    progress=False, auto_adjust=True
+                ): name
+                for name, ticker in tickers.items()
+            }
+            for future in futures:
+                name = futures[future]
+                downloads[name] = future.result()
+        gold, silver, sp500 = downloads["gold"], downloads["silver"], downloads["sp500"]
 
         # 2. 안전한 종가 추출 헬퍼 (yfinance 버전 호환성 확보)
         def get_safe_close(df, name):

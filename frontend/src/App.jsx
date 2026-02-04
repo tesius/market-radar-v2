@@ -19,6 +19,8 @@ function App() {
   const [riskData, setRiskData] = useState([]);
   const [creditSpreadData, setCreditSpreadData] = useState([]);
   const [yieldGapData, setYieldGapData] = useState(null);
+  const [rateSpreadData, setRateSpreadData] = useState([]);
+  const [usRateSpreadData, setUsRateSpreadData] = useState([]);
 
   // Theme Management (Default: Dark)
   const [theme, setTheme] = useState(() => {
@@ -74,17 +76,21 @@ function App() {
       api.get('/api/macro/unrate'),
       api.get('/api/macro/risk-ratio'),
       api.get('/api/market/credit-spread'),
-      api.get('/api/market/yield-gap')
+      api.get('/api/market/yield-gap'),
+      api.get('/api/macro/rate-spread'),
+      api.get('/api/macro/us-rate-spread')
     ]);
 
     // 결과 처리 (성공한 것만 상태에 넣기)
-    const [cpiResult, unrateResult, riskResult, creditResult, yieldGapResult] = results;
+    const [cpiResult, unrateResult, riskResult, creditResult, yieldGapResult, rateSpreadResult, usRateSpreadResult] = results;
 
     if (cpiResult.status === 'fulfilled') setCpiData(cpiResult.value.data);
     if (unrateResult.status === 'fulfilled') setUnrateData(unrateResult.value.data);
     if (riskResult.status === 'fulfilled') setRiskData(riskResult.value.data);
     if (creditResult.status === 'fulfilled') setCreditSpreadData(creditResult.value.data);
     if (yieldGapResult.status === 'fulfilled') setYieldGapData(yieldGapResult.value.data);
+    if (rateSpreadResult.status === 'fulfilled') setRateSpreadData(rateSpreadResult.value.data);
+    if (usRateSpreadResult.status === 'fulfilled') setUsRateSpreadData(usRateSpreadResult.value.data);
 
     setLastUpdated(new Date().toLocaleTimeString());
     setLoading(false);
@@ -218,8 +224,8 @@ function App() {
             단기 자금 동향 (Call vs Base)
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <RateSpreadChart isDarkMode={isDarkMode} />
-            <USRateSpreadChart isDarkMode={isDarkMode} />
+            <RateSpreadChart data={rateSpreadData} isDarkMode={isDarkMode} />
+            <USRateSpreadChart data={usRateSpreadData} isDarkMode={isDarkMode} />
           </div>
         </section>
 

@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
 
-const MetricCard = ({ title, name, ticker, value, change, changePercent, change_percent, displayChange, history }) => {
+const MetricCard = memo(({ title, name, ticker, value, change, changePercent, change_percent, displayChange, history }) => {
     // 1. 데이터 안전장치 & 포맷팅
     // 이름이 없으면 티커라도 보여주고, 그것도 없으면 Loading
     const displayName = title || name || ticker || "로딩 중...";
@@ -28,8 +28,8 @@ const MetricCard = ({ title, name, ticker, value, change, changePercent, change_
     if (isPositive) color = '#EF4444'; // Red (상승)
     if (isNegative) color = '#3B82F6'; // Blue (하락)
 
-    // 그라데이션 ID (고유값 보장)
-    const gradientId = `gradient-${(ticker || 'unknown').replace(/\W/g, '')}-${Math.random()}`;
+    // 그라데이션 ID (ticker 기반 안정적 ID - 리렌더 시 SVG 재생성 방지)
+    const gradientId = `gradient-${(ticker || 'unknown').replace(/\W/g, '')}`;
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-lg flex flex-col justify-between h-[180px] relative overflow-hidden group hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-300">
@@ -79,5 +79,5 @@ const MetricCard = ({ title, name, ticker, value, change, changePercent, change_
             </div>
         </div>
     );
-};
+});
 export default MetricCard;

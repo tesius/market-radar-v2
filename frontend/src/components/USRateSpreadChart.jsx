@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Legend, ReferenceLine, Cell
 } from 'recharts';
-import api from '../api';
 
 const getSpreadStatus = (spread) => {
     if (spread >= 0.10) return { status: '안전', color: '#10b981', message: '충분한 유동성' };
@@ -41,25 +40,8 @@ const CustomTooltip = ({ active, payload, label }) => {
     return null;
 };
 
-const USRateSpreadChart = ({ isDarkMode = true }) => {
-    const [data, setData] = useState([]);
-    const [loading, setLoading] = useState(true);
+const USRateSpreadChart = ({ data = [], isDarkMode = true }) => {
     const [timeRange, setTimeRange] = useState('1Y');
-
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const response = await api.get('/api/macro/us-rate-spread');
-                setData(response.data);
-            } catch (error) {
-                console.error("Failed to fetch US rate spread data:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchData();
-    }, []);
 
     // 기간 필터링 및 데이터 최적화 (Downsampling)
     const filteredData = useMemo(() => {
@@ -98,7 +80,7 @@ const USRateSpreadChart = ({ isDarkMode = true }) => {
         };
     }, [data]);
 
-    if (loading) {
+    if (!data || data.length === 0) {
         return <div className="h-[350px] bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse border border-gray-200 dark:border-gray-700"></div>;
     }
 

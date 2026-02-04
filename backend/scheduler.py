@@ -1,8 +1,8 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
-import asyncio
 
 # Services
 from services import stock_service, macro_service, bond_service, analysis_service
@@ -34,63 +34,44 @@ DATA_STORE = {
     "us_rate_spread": []
 }
 
+def _fetch_task(name, func, *args):
+    """개별 서비스 호출을 래핑하여 (key, result) 튜플을 반환"""
+    try:
+        result = func(*args)
+        logger.info(f"✅ [Scheduler] {name} updated")
+        return (name, result)
+    except Exception as e:
+        logger.error(f"❌ [Scheduler] {name} failed: {e}")
+        return (name, None)
+
 def update_all_data():
     """
     Background Task: Fetches data from all services and updates DATA_STORE.
-    This function runs in a separate thread managed by APScheduler.
+    ThreadPoolExecutor로 모든 서비스를 병렬 실행하여 전체 업데이트 시간을 단축.
     """
     logger.info(f"🔄 [Scheduler] Starting data update at {datetime.now(ZoneInfo('Asia/Seoul'))}...")
-    
-    try:
-        # 1. Market Pulse
-        DATA_STORE["market_pulse"] = stock_service.get_market_pulse()
-        logger.info("✅ [Scheduler] Market Pulse updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Market Pulse failed: {e}")
 
-    try:
-        # 2. Macro Data
-        DATA_STORE["cpi"] = macro_service.get_macro_data("CPIAUCSL", "US CPI (Consumer Price Index)")
-        DATA_STORE["unrate"] = macro_service.get_macro_data("UNRATE", "US Unemployment Rate")
-        logger.info("✅ [Scheduler] Macro Data updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Macro Data failed: {e}")
+    tasks = {
+        "market_pulse": (stock_service.get_market_pulse,),
+        "cpi": (macro_service.get_macro_data, "CPIAUCSL", "US CPI (Consumer Price Index)"),
+        "unrate": (macro_service.get_macro_data, "UNRATE", "US Unemployment Rate"),
+        "risk_ratio": (analysis_service.get_risk_ratio,),
+        "credit_spread": (bond_service.get_credit_spread_data,),
+        "yield_gap": (analysis_service.get_yield_gap_data,),
+        "rate_spread": (analysis_service.get_rate_spread_data,),
+        "us_rate_spread": (analysis_service.get_us_rate_spread_data,),
+    }
 
-    try:
-        # 3. Risk Ratio
-        DATA_STORE["risk_ratio"] = analysis_service.get_risk_ratio()
-        logger.info("✅ [Scheduler] Risk Ratio updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Risk Ratio failed: {e}")
+    with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
+        futures = {
+            executor.submit(_fetch_task, key, *funcs): key
+            for key, funcs in tasks.items()
+        }
+        for future in as_completed(futures):
+            key, result = future.result()
+            if result is not None:
+                DATA_STORE[key] = result
 
-    try:
-        # 4. Credit Spread
-        DATA_STORE["credit_spread"] = bond_service.get_credit_spread_data()
-        logger.info("✅ [Scheduler] Credit Spread updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Credit Spread failed: {e}")
-
-    try:
-        # 5. Yield Gap
-        DATA_STORE["yield_gap"] = analysis_service.get_yield_gap_data()
-        logger.info("✅ [Scheduler] Yield Gap updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Yield Gap failed: {e}")
-
-    try:
-        # 6. Rate Spread
-        DATA_STORE["rate_spread"] = analysis_service.get_rate_spread_data()
-        logger.info("✅ [Scheduler] Rate Spread updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] Rate Spread failed: {e}")
-
-    try:
-        # 7. US Rate Spread
-        DATA_STORE["us_rate_spread"] = analysis_service.get_us_rate_spread_data()
-        logger.info("✅ [Scheduler] US Rate Spread updated")
-    except Exception as e:
-        logger.error(f"❌ [Scheduler] US Rate Spread failed: {e}")
-        
     logger.info("✨ [Scheduler] All updates completed.")
 
 def start_scheduler():
